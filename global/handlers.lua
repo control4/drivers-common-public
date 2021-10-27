@@ -204,13 +204,19 @@ do	--Setup Metrics
 	MetricsHandler = Metrics:new ('dcp_handler', COMMON_HANDLERS_VER)
 end
 
+function formatParams(tParams)
+  tParams = tParams or {}
+  local out, tins = {}, table.insert
+  for k,v in pairs(tParams) do
+    tins(out, tostring(k) .. ": " .. tostring(v))
+  end
+  return table.concat(out, ", ")
+end
+
 function ExecuteCommand (strCommand, tParams)
 	tParams = tParams or {}
 	if (DEBUGPRINT) then
-		local output = {'--- ExecuteCommand', strCommand, '----PARAMS----'}
-		for k,v in pairs (tParams) do table.insert (output, tostring (k) .. ' = ' .. tostring (v)) end
-		table.insert (output, '---')
-		output = table.concat (output, '\r\n')
+    local output = '--- ExecuteCommand [' .. strCommand .. ']: ' .. formatParams(tParams)
 		print (output)
 		C4:DebugLog (output)
 	end
@@ -243,10 +249,7 @@ function UIRequest (strCommand, tParams)
 	tParams = tParams or {}
 
 	if (DEBUGPRINT) then
-		local output = {'--- UIRequest: ' .. strCommand, '----PARAMS----'}
-		for k,v in pairs (tParams) do table.insert (output, tostring (k) .. ' = ' .. tostring (v)) end
-		table.insert (output, '---')
-		output = table.concat (output, '\r\n')
+    local output = '--- UIRequest [' .. strCommand .. ']: ' .. formatParams(tParams)
 		print (output)
 		C4:DebugLog (output)
 	end
@@ -405,6 +408,14 @@ function OnVariableChanged (strVariable)
 end
 
 function RegisterVariableListener (idDevice, idVariable, callback)
+  local id_d = idDevice or -1
+  local id_v = idVariable or -1
+  if (id_d == -1) or (id_v == -1) then
+		MetricsHandler:SetCounter ('Error_RegisterVariableListener')
+		print ('RegisterVariableListener error (Invalid idDevice / idVariable): ', tostring(idDevice), tostring(idVariable), tostring(callback))
+    return
+  end
+
 	C4:UnregisterVariableListener (idDevice, idVariable)
 
 	OWVC [idDevice] = OWVC [idDevice] or {}
@@ -419,6 +430,14 @@ function RegisterVariableListener (idDevice, idVariable, callback)
 end
 
 function UnregisterVariableListener (idDevice, idVariable)
+  local id_d = idDevice or -1
+  local id_v = idVariable or -1
+  if (id_d == -1) or (id_v == -1) then
+		MetricsHandler:SetCounter ('Error_UnregisterVariableListener')
+		print ('UnregisterVariableListener error (Invalid idDevice / idVariable): ', tostring(idDevice), tostring(idVariable))
+    return
+  end
+
 	if (OWVC and OWVC [idDevice]) then
 		OWVC [idDevice] [idVariable] = nil
 	end
@@ -506,12 +525,7 @@ function ReceivedFromProxy (idBinding, strCommand, tParams)
 	end
 
 	if (DEBUGPRINT) then
-		local output = {'--- ReceivedFromProxy: ' .. idBinding, strCommand, '----PARAMS----'}
-		for k,v in pairs (tParams) do table.insert (output, tostring (k) .. ' = ' .. tostring (v)) end
-		table.insert (output, '-----ARGS-----')
-		for k,v in pairs (args) do table.insert (output, tostring (k) .. ' = ' .. tostring (v)) end
-		table.insert (output, '---')
-		output = table.concat (output, '\r\n')
+    local output = '--- ReceivedFromProxy [' .. idBinding .. '/' .. strCommand .. ']: ' .. formatParams(tParams) .. ' ARGS: ' .. formatParams(args)
 		print (output)
 		C4:DebugLog (output)
 	end
@@ -538,9 +552,7 @@ function TestCondition (strConditionName, tParams)
 	tParams = tParams or {}
 
 	if (DEBUGPRINT) then
-		local output = {'--- TestCondition: ' .. strConditionName, '----PARAMS----'}
-		for k,v in pairs (tParams) do table.insert (output, tostring (k) .. ' = ' .. tostring (v)) end
-		output = table.concat (output, '\r\n')
+    local output = '--- TestCondition [' .. strConditionName .. ']: ' .. formatParams(tParams)
 		print (output)
 		C4:DebugLog (output)
 	end
@@ -559,28 +571,3 @@ function TestCondition (strConditionName, tParams)
 	end
 end
 
-function UIRequest (strCommand, tParams)
-	strCommand = strCommand or ''
-	tParams = tParams or {}
-
-	if (DEBUGPRINT) then
-		local output = {'--- UIRequest: ' .. strCommand, '----PARAMS----'}
-		for k,v in pairs (tParams) do table.insert (output, tostring (k) .. ' = ' .. tostring (v)) end
-		table.insert (output, '---')
-		output = table.concat (output, '\r\n')
-		print (output)
-		C4:DebugLog (output)
-	end
-
-	local success, ret
-
-	if (UIR and UIR [strCommand] and type (UIR [strCommand]) == 'function') then
-		success, ret = pcall (UIR [strCommand], strCommand, tParams)
-	end
-
-	if (success == true) then
-		return (ret)
-	elseif (success == false) then
-		print ('UIRequest Lua error: ', strCommand, ret)
-	end
-end
